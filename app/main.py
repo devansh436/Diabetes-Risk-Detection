@@ -131,5 +131,8 @@ def predict(patient: PatientData, request: Request):
 
 
 @app.get("/metrics", include_in_schema=False)
-def metrics():
+def metrics(request: Request, raw: bool = False):
+    """Prometheus text for scrapers; a visual dashboard for browsers (Accept: text/html)."""
+    if not raw and "text/html" in request.headers.get("accept", ""):
+        return FileResponse(STATIC_DIR / "metrics.html")
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)

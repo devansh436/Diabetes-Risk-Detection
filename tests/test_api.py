@@ -44,3 +44,11 @@ def test_metrics_endpoint_exposes_custom_metrics(client):
 def test_homepage_served(client):
     r = client.get("/")
     assert r.status_code == 200 and "Diabetes risk check" in r.text
+
+
+def test_metrics_is_html_dashboard_for_browsers_but_text_for_scrapers(client):
+    html = client.get("/metrics", headers={"Accept": "text/html"})
+    assert "Service metrics" in html.text
+    raw = client.get("/metrics", headers={"Accept": "text/html"}, params={"raw": 1})
+    assert "http_requests_total" in raw.text
+    assert "http_requests_total" in client.get("/metrics").text
