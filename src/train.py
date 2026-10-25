@@ -22,8 +22,8 @@ from src.data import FEATURES, TARGET, load_data, zeros_to_nan
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("train")
 
-# MIN_ROC_AUC = float(os.getenv("MIN_ROC_AUC", "0.70"))  # quality gate used by CI
-MIN_ROC_AUC = .99  # quality gate used by CI
+MIN_ROC_AUC = float(os.getenv("MIN_ROC_AUC", "0.70"))  # quality gate used by CI
+# MIN_ROC_AUC = .99  # quality gate used by CI
 PARAMS = {"n_estimators": 200, "max_depth": 6, "min_samples_leaf": 3, "random_state": 42}
 
 

@@ -1,54 +1,114 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Diabetes Risk Check</title>
-<link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-<main>
-  <h1>Diabetes risk check</h1>
-  <p class="lead">Enter eight routine measurements to estimate the chance of diabetes. Trained on the Pima Indians dataset. Educational use only.</p>
-  <div class="layout">
-    <form id="f">
-      <div class="grid" id="fields"></div>
-      <button id="go" type="submit">Estimate risk</button>
-    </form>
-    <section class="result" aria-live="polite" id="out">
-      <h2>Result</h2>
-      <p class="empty">Fill in the form and select “Estimate risk”.</p>
-    </section>
-  </div>
-  <footer>
-    <a href="/docs">API docs</a><a href="/health">Health</a><a href="/model-info">Model info</a><a href="/metrics">Metrics</a>
-  </footer>
-</main>
-<script>
-const FIELDS=[["Pregnancies","Pregnancies",2,"1","0"],["Glucose","Glucose (mg/dL)",120,"1","1"],
-["BloodPressure","Blood pressure (mm Hg)",70,"1","0"],["SkinThickness","Skin thickness (mm)",20,"1","0"],
-["Insulin","Insulin (µU/mL)",80,"1","0"],["BMI","BMI",28.5,"0.1","1"],
-["DiabetesPedigreeFunction","Pedigree function",0.4,"0.001","0"],["Age","Age (years)",35,"1","1"]];
-const box=document.getElementById("fields");
-FIELDS.forEach(([k,l,v,s,m])=>{box.insertAdjacentHTML("beforeend",
- `<label>${l}<input name="${k}" type="number" step="${s}" min="${m}" value="${v}" required></label>`)});
-const out=document.getElementById("out"),btn=document.getElementById("go");
-document.getElementById("f").addEventListener("submit",async e=>{
- e.preventDefault();btn.disabled=true;
- const body={};new FormData(e.target).forEach((v,k)=>body[k]=Number(v));
- try{
-  const r=await fetch("/predict",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-  const d=await r.json();
-  if(!r.ok){const msg=Array.isArray(d.detail)?d.detail.map(x=>x.loc.slice(-1)[0]+": "+x.msg).join("; "):d.detail;
-   out.innerHTML=`<h2>Result</h2><p class="error">Could not predict. ${msg}</p>`;return}
-  const pct=(d.probability*100).toFixed(1);
-  out.innerHTML=`<h2>Result</h2><p class="big">${pct}%</p>
-   <p class="level ${d.risk_level}">${d.risk_level[0].toUpperCase()+d.risk_level.slice(1)} risk</p>
-   <div class="gauge"><i style="left:calc(${pct}% - 2px)"></i></div>
-   <small>Model v${d.model_version}. ${d.disclaimer}</small>`;
- }catch(err){out.innerHTML=`<h2>Result</h2><p class="error">Service unreachable. Check that the API is running.</p>`}
- finally{btn.disabled=false}
-});
-</script>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Diabetes Risk Check</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <main>
+      <nav class="topbar" aria-label="Main">
+        <a class="brand" href="/">Diabetes Risk</a>
+        <div class="links">
+          <a href="/" aria-current="page">Risk check</a>
+          <a href="/metrics">Metrics</a>
+        </div>
+      </nav>
+
+      <h1>Diabetes risk check</h1>
+      <p class="lead">
+        Enter eight routine measurements to estimate the chance of diabetes.
+        Trained on the Pima Indians dataset. Educational use only.
+      </p>
+
+      <div class="layout">
+        <form id="f">
+          <div class="grid" id="fields"></div>
+          <button id="go" type="submit">Estimate risk</button>
+        </form>
+        <section class="result" aria-live="polite" id="out">
+          <h2>Result</h2>
+          <p class="empty">Fill in the form and select “Estimate risk”.</p>
+        </section>
+      </div>
+    </main>
+    <script>
+      const FIELDS = [
+        ["Pregnancies", "Pregnancies", 2, "1", "0"],
+        ["Glucose", "Glucose (mg/dL)", 120, "1", "1"],
+        ["BloodPressure", "Blood pressure (mm Hg)", 70, "1", "0"],
+        ["SkinThickness", "Skin thickness (mm)", 20, "1", "0"],
+        ["Insulin", "Insulin (µU/mL)", 80, "1", "0"],
+        ["BMI", "BMI", 28.5, "0.1", "1"],
+        ["DiabetesPedigreeFunction", "Pedigree function", 0.4, "0.001", "0"],
+        ["Age", "Age (years)", 35, "1", "1"],
+      ];
+      const esc = (s) =>
+        String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+      const box = document.getElementById("fields");
+      FIELDS.forEach(([k, l, v, s, m]) => {
+        box.insertAdjacentHTML(
+          "beforeend",
+          `<label>${l}<input name="${k}" type="number" inputmode="decimal" step="${s}" min="${m}" value="${v}" required></label>`,
+        );
+      });
+
+      const out = document.getElementById("out"),
+        btn = document.getElementById("go");
+
+      function reveal() {
+        // on single-column screens the result sits below the form, so bring it into view
+        if (window.matchMedia("(max-width:760px)").matches) {
+          const calm = window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+          out.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "start" });
+        }
+      }
+
+      document.getElementById("f").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        btn.disabled = true;
+        btn.textContent = "Estimating…";
+        const body = {};
+        new FormData(e.target).forEach((v, k) => (body[k] = Number(v)));
+        try {
+          const r = await fetch("/predict", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const d = await r.json();
+          if (!r.ok) {
+            const msg = Array.isArray(d.detail)
+              ? d.detail.map((x) => x.loc.slice(-1)[0] + ": " + x.msg).join("; ")
+              : d.detail;
+            out.innerHTML = `<h2>Result</h2><p class="error">Could not predict. ${esc(msg)}</p>`;
+            reveal();
+            return;
+          }
+          const pct = (d.probability * 100).toFixed(1);
+          out.innerHTML = `<h2>Result</h2><p class="big">${pct}%</p>
+            <p class="level ${d.risk_level}">${d.risk_level[0].toUpperCase() + d.risk_level.slice(1)} risk</p>
+            <div class="gauge"><i id="pin"></i></div>
+            <small>Model v${esc(d.model_version)}. ${esc(d.disclaimer)}</small>`;
+          // set the position on the next frames so the pin slides in from the left
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+              document.getElementById("pin").style.left = `calc(${pct}% - ${(pct / 100) * 6}px)`;
+            }),
+          );
+          reveal();
+        } catch (err) {
+          out.innerHTML = `<h2>Result</h2><p class="error">Service unreachable. Check that the API is running.</p>`;
+          reveal();
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Estimate risk";
+        }
+      });
+    </script>
+  </body>
 </html>

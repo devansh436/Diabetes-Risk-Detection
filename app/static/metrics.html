@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Service metrics - Diabetes Risk API</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/style.css" />
+    <style>
+      .head{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px 20px;margin-bottom:28px}
+      .head h1{margin:0 0 6px}
+      .status{margin:0;color:var(--muted);font-size:.88rem}
+      .head a{font-size:.88rem;font-weight:500}
+      .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--low);margin-right:8px}
+      .dot.off{background:var(--high)}
+
+      /* headline numbers: no boxes, just type and space */
+      .stats{display:flex;flex-wrap:wrap;gap:20px 44px;padding-bottom:28px;margin-bottom:28px;border-bottom:1px solid var(--line)}
+      .stat b{display:block;font:600 2rem/1.1 var(--display);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+      .stat span{color:var(--muted);font-size:.82rem}
+
+      .panels{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+      @media(max-width:760px){.panels{grid-template-columns:1fr}}
+      .panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 22px}
+      .panel h2{font:600 1.05rem var(--display);margin:0 0 2px}
+      .panel p.hint{color:var(--muted);font-size:.8rem;margin:0 0 14px}
+
+      .row{display:grid;grid-template-columns:120px 1fr 64px;gap:12px;align-items:center;margin:9px 0;font-size:.88rem}
+      .row .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .track{background:var(--paper);border-radius:5px;height:12px;overflow:hidden}
+      .track i{display:block;height:100%;background:var(--teal);border-radius:5px;transition:width .4s}
+      .row .num{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+
+      .hist{display:flex;align-items:flex-end;gap:5px;height:120px;border-bottom:1px solid var(--line)}
+      .hist div{flex:1;background:var(--teal);border-radius:4px 4px 0 0;min-height:1px;position:relative;transition:height .4s}
+      .hist div span{position:absolute;top:-17px;left:0;right:0;text-align:center;font-size:.7rem;color:var(--muted)}
+      .labels{display:flex;gap:5px;font-size:.7rem;color:var(--muted);margin-top:4px}
+      .labels span{flex:1;text-align:center}
+
+      .empty{color:var(--muted);font-size:.88rem;margin:6px 0}
+      svg.spark{width:100%;height:90px;display:block}
+      @media(prefers-reduced-motion:reduce){.track i,.hist div{transition:none}}
+    </style>
+  </head>
+  <body>
+    <main>
+      <nav class="topbar" aria-label="Main">
+        <a class="brand" href="/">Diabetes Risk</a>
+        <div class="links">
+          <a href="/">Risk check</a>
+          <a href="/metrics" aria-current="page">Metrics</a>
+        </div>
+      </nav>
+
+      <div class="head">
+        <div>
+          <h1>Service metrics</h1>
+          <p class="status"><span class="dot" id="dot"></span><span id="status">Connecting…</span></p>
+        </div>
+        <a href="/metrics?raw=1">Raw text</a>
+      </div>
+
+      <section class="stats" id="stats"></section>
+      <section class="panels" id="panels"></section>
+    </main>
+    <script>
+      const RISK_COLOR = { low: "var(--low)", moderate: "var(--mod)", high: "var(--high)" };
+      const STATUS_COLOR = (s) => (s[0] === "2" ? "var(--low)" : s[0] === "4" ? "var(--mod)" : "var(--high)");
+      const esc = (s) =>
+        String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+      function parse(text) {
+        const m = {};
+        for (const line of text.split("\n")) {
+          if (!line || line[0] === "#") continue;
+          const mt = line.match(/^([a-zA-Z_:][\w:]*)(\{(.*)\})?\s+(\S+)/);
+          if (!mt) continue;
+          const labels = {};
+          if (mt[3])
+            for (const p of mt[3].matchAll(/(\w+)="((?:[^"\\]|\\.)*)"/g)) labels[p[1]] = p[2];
+          (m[mt[1]] = m[mt[1]] || []).push({ labels, value: parseFloat(mt[4]) });
+        }
+        return m;
+      }
+      const get = (m, n) => m[n] || [];
+      const total = (a) => a.reduce((s, x) => s + x.value, 0);
+      function groupSum(series, label) {
+        const o = {};
+        for (const s of series) {
+          const k = s.labels[label];
+          o[k] = (o[k] || 0) + s.value;
+        }
+        return o;
+      }
+      function hist(m, name) {
+        const b = get(m, name + "_bucket")
+          .slice()
+          .sort((a, c) => parseFloat(a.labels.le) - parseFloat(c.labels.le));
+        let prev = 0,
+          lo = 0;
+        return b.map((x) => {
+          const le = x.labels.le;
+          const out = { lo, le, count: x.value - prev };
+          prev = x.value;
+          if (le !== "+Inf") lo = parseFloat(le);
+          return out;
+        });
+      }
+      const fmt = (n) => (n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(Math.round(n)));
+      const ms = (s) => (s < 1 ? (s * 1000).toFixed(1) + " ms" : s.toFixed(2) + " s");
+
+      function bars(data, colorFn, unit = "") {
+        const entries = Object.entries(data);
+        if (!entries.length) return '<p class="empty">No data yet.</p>';
+        const max = Math.max(...entries.map((e) => e[1]), 1);
+        return entries
+          .map(
+            ([k, v]) => `<div class="row"><span class="name" title="${esc(k)}">${esc(k)}</span>
+   <span class="track"><i style="width:${(v / max) * 100}%;background:${colorFn ? colorFn(k) : "var(--teal)"}"></i></span>
+   <span class="num">${unit === "ms" ? ms(v) : fmt(v)}</span></div>`,
+          )
+          .join("");
+      }
+      function histChart(h, { numeric }) {
+        const n = h.reduce((s, x) => s + x.count, 0);
+        if (!n) return '<p class="empty">No data yet. Make a prediction first.</p>';
+        const max = Math.max(...h.map((x) => x.count));
+        const cols = h
+          .map(
+            (x) =>
+              `<div style="height:${(x.count / max) * 100}%" title="${x.count} requests"><span>${x.count || ""}</span></div>`,
+          )
+          .join("");
+        const labs = h
+          .map(
+            (x) =>
+              `<span>${x.le === "+Inf" ? "&gt;" + x.lo : numeric ? "≤" + parseFloat(x.le) : x.le}</span>`,
+          )
+          .join("");
+        return `<div class="hist" style="margin-top:20px">${cols}</div><div class="labels">${labs}</div>`;
+      }
+      function spark(vals) {
+        if (vals.length < 2) return '<p class="empty">Collecting samples…</p>';
+        const max = Math.max(...vals, 0.1),
+          W = 300,
+          H = 80;
+        const pts = vals
+          .map((v, i) => `${((i / (vals.length - 1)) * W).toFixed(1)},${(H - (v / max) * (H - 6) - 3).toFixed(1)}`)
+          .join(" ");
+        return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Requests per second over time">
+   <polyline points="${pts}" fill="none" stroke="var(--teal)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
+   <p class="hint" style="margin:8px 0 0">Peak ${max.toFixed(1)} req/s in the last ${vals.length * 5}s</p>`;
+      }
+
+      const rates = [];
+      let last = null;
+      function render(m) {
+        const reqSeries = get(m, "http_requests_total"),
+          preds = get(m, "predictions_total");
+        const reqs = total(reqSeries),
+          nPred = total(preds);
+        const errs = total(reqSeries.filter((s) => /^[45]/.test(s.labels.status)));
+        const lat = total(get(m, "http_request_duration_seconds_sum")),
+          latN = total(get(m, "http_request_duration_seconds_count"));
+        const ver = (get(m, "model_loaded_info")[0] || { labels: {} }).labels.version || "unknown";
+        const probN = total(get(m, "prediction_probability_count")),
+          probSum = total(get(m, "prediction_probability_sum"));
+        const now = Date.now();
+        if (last) rates.push(Math.max(0, (reqs - last.reqs) / ((now - last.t) / 1000)));
+        if (rates.length > 60) rates.shift();
+        last = { reqs, t: now };
+
+        document.getElementById("stats").innerHTML = [
+          [fmt(nPred), "predictions served"],
+          [fmt(reqs), "requests"],
+          [latN ? ms(lat / latN) : "–", "average latency"],
+          [reqs ? ((errs / reqs) * 100).toFixed(1) + "%" : "–", "error responses (4xx/5xx)"],
+          [probN ? ((probSum / probN) * 100).toFixed(0) + "%" : "–", "average predicted risk"],
+          ["v" + esc(ver), "model version"],
+        ]
+          .map(([a, b]) => `<div class="stat"><b>${a}</b><span>${b}</span></div>`)
+          .join("");
+
+        const byPath = groupSum(reqSeries, "path");
+        const latSum = groupSum(get(m, "http_request_duration_seconds_sum"), "path"),
+          latCnt = groupSum(get(m, "http_request_duration_seconds_count"), "path");
+        const latPath = {};
+        for (const p in latSum) if (latCnt[p]) latPath[p] = latSum[p] / latCnt[p];
+
+        document.getElementById("panels").innerHTML = `
+   <div class="panel"><h2>Predictions by risk level</h2><p class="hint">How the model is classifying incoming patients.</p>${bars(groupSum(preds, "risk_level"), (k) => RISK_COLOR[k])}</div>
+   <div class="panel"><h2>Predicted probability</h2><p class="hint">Distribution of model output. A sudden shift can signal drift.</p>${histChart(hist(m, "prediction_probability"), { numeric: true })}</div>
+   <div class="panel"><h2>Requests by endpoint</h2><p class="hint">Total calls since the server started.</p>${bars(byPath)}</div>
+   <div class="panel"><h2>Average latency by endpoint</h2><p class="hint">Time to answer each request.</p>${bars(latPath, null, "ms")}</div>
+   <div class="panel"><h2>Glucose inputs</h2><p class="hint">Compare against training data to spot data drift.</p>${histChart(hist(m, "input_glucose"), { numeric: true })}</div>
+   <div class="panel"><h2>BMI inputs</h2><p class="hint">Same check for BMI.</p>${histChart(hist(m, "input_bmi"), { numeric: true })}</div>
+   <div class="panel"><h2>Responses by status code</h2><p class="hint">2xx success, 4xx invalid input, 5xx server problems.</p>${bars(groupSum(reqSeries, "status"), STATUS_COLOR)}</div>
+   <div class="panel"><h2>Traffic</h2><p class="hint">Requests per second, updated every 5 seconds.</p>${spark(rates)}</div>`;
+      }
+
+      async function tick() {
+        const dot = document.getElementById("dot"),
+          st = document.getElementById("status");
+        try {
+          const r = await fetch("/metrics?raw=1");
+          if (!r.ok) throw new Error(r.status);
+          render(parse(await r.text()));
+          dot.className = "dot";
+          st.textContent = "Live, updated " + new Date().toLocaleTimeString();
+        } catch (e) {
+          dot.className = "dot off";
+          st.textContent = "Cannot reach the API. Retrying…";
+        }
+      }
+      tick();
+      setInterval(tick, 5000);
+    </script>
+  </body>
+</html>
