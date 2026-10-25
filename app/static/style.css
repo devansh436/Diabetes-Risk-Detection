@@ -1,0 +1,28 @@
+:root{--paper:#f4f7f8;--ink:#14232e;--muted:#5a6b76;--line:#d3dde2;--teal:#0b7a75;
+--low:#2f8f5b;--mod:#c98a12;--high:#c0392b;--card:#fff}
+@media (prefers-color-scheme:dark){:root{--paper:#0f1a21;--ink:#e6eef2;--muted:#93a4af;--line:#26363f;--card:#16252e;--teal:#3ec1b9}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:880px;margin:0 auto;padding:40px 20px 60px}
+h1{font:600 2.1rem/1.15 Georgia,"Times New Roman",serif;margin:0 0 6px}
+.lead{color:var(--muted);margin:0 0 28px;max-width:60ch}
+.layout{display:grid;grid-template-columns:1.2fr 1fr;gap:24px}
+@media(max-width:760px){.layout{grid-template-columns:1fr}}
+form,.result{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+label{display:flex;flex-direction:column;font-size:.85rem;color:var(--muted);gap:4px}
+input{font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:5px;padding:8px}
+input:focus-visible,button:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+button{margin-top:18px;width:100%;font:600 1rem inherit;font-family:inherit;padding:11px;border:0;border-radius:5px;background:var(--teal);color:#fff;cursor:pointer}
+button:disabled{opacity:.6;cursor:wait}
+.result h2{font:600 1.1rem Georgia,serif;margin:0 0 14px}
+.empty{color:var(--muted)}
+.gauge{height:14px;border-radius:7px;background:linear-gradient(90deg,var(--low) 0 33%,var(--mod) 33% 66%,var(--high) 66%);position:relative;margin:18px 0 8px}
+.gauge i{position:absolute;top:-5px;width:4px;height:24px;border-radius:2px;background:var(--ink);transition:left .5s}
+.big{font:600 2.4rem Georgia,serif;margin:6px 0 0}
+.level{font-weight:600}
+.low{color:var(--low)}.moderate{color:var(--mod)}.high{color:var(--high)}
+.error{color:var(--high)}
+small,footer{color:var(--muted);font-size:.8rem}
+footer{margin-top:28px}footer a{color:var(--teal);margin-right:14px}
+@media(prefers-reduced-motion:reduce){.gauge i{transition:none}}
