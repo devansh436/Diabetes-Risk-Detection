@@ -180,3 +180,9 @@ docker run --rm -p 8000:8000 ghcr.io/<you>/diabetes-mlops:latest
 Useful next steps include MLflow or DVC for experiment/data tracking, alert
 rules for latency and drift, protected production environments, and automated
 retraining after a validated drift signal.
+
+Innovative Assignment by<br>
+-23bce001<br>
+-23bce012<br>
+-23bce056<br>
+-23bce120
