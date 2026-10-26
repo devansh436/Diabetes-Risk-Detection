@@ -1,0 +1,47 @@
+groups:
+  - name: diabetes_api_alerts
+    rules:
+      - alert: ServiceDown
+        expr: up{job="diabetes-api"} == 0
+        for: 15s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Diabetes API service is down"
+          description: "Target diabetes-api on port 8000 has been unreachable for > 15s."
+
+      - alert: HighP95Latency
+        expr: histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket[2m]))) > 0.200
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p95 latency detected"
+          description: "p95 latency is above 200ms (current: {{ $value }}s)."
+
+      - alert: HighErrorRate
+        expr: (sum(rate(http_requests_total{status=~"[45].."}[2m])) / sum(rate(http_requests_total[2m]))) > 0.05
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API error rate exceeds 5%"
+          description: "4xx/5xx error responses exceed 5% of total requests."
+
+      - alert: InputDataDriftGlucose
+        expr: (sum(rate(input_glucose_sum[5m])) / sum(rate(input_glucose_count[5m]))) > 150
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Input feature data drift detected (Glucose)"
+          description: "Rolling 5m average glucose is {{ $value }} mg/dL (baseline training mean is ~120 mg/dL)."
+
+      - alert: ModelOutputDrift
+        expr: (sum(rate(prediction_probability_sum[5m])) / sum(rate(prediction_probability_count[5m]))) > 0.65
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Model output probability drift detected"
+          description: "Rolling 5m average risk probability is {{ $value }} (expected baseline mean is ~0.35)."

@@ -106,6 +106,8 @@ Open:
 
 * [http://localhost:8000](http://localhost:8000) - API UI
 * [http://localhost:9090/targets](http://localhost:9090/targets) - Prometheus target status
+* [http://localhost:9090/alerts](http://localhost:9090/alerts) - Prometheus alert rules & status
+* [http://localhost:9093](http://localhost:9093) - Alertmanager UI
 * [http://localhost:3000](http://localhost:3000) - Grafana (`admin` / `admin`)
 
 Grafana automatically provisions the dashboard **Diabetes Risk API - MLOps

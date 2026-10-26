@@ -1,0 +1,16 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'severity']
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 1h
+  receiver: 'default'
+
+receivers:
+  - name: 'default'
+    # Webhook or notification integrations (e.g., Slack, Discord, Email) can be specified here:
+    # webhook_configs:
+    #   - url: 'https://webhook.site/your-id'
+    #     send_resolved: true
