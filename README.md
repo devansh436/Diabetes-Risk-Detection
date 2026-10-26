@@ -184,7 +184,7 @@ rules for latency and drift, protected production environments, and automated
 retraining after a validated drift signal.
 
 Innovative Assignment by<br>
--23bce001 Aadit Pithava<br>
--23bce012 Advait Pandya<br>
--23bce056 Devansh Deshpande<br>
+-23bce001 Aadit Pithava <br>
+-23bce012 Advait Pandya <br>
+-23bce056 Devansh Deshpande <br>
 -23bce120 Shivam Jhaveri
